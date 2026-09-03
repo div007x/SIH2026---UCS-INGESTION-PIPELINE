@@ -1,6 +1,6 @@
 # Validation & Audit Report: Unified Cyber State ($S_t$) Pipeline
 **SIH26153 — Cyber World Model Architecture (Data Engineer Track)**
-**Generated Date**: 2026-09-02 21:54:16 UTC
+**Generated Date**: 2026-09-03 20:12:11 UTC
 
 ---
 
@@ -12,7 +12,10 @@
 | **Zero Feature NaNs** | 0 unexpected NaN values | **0** | **PASSED** |
 | **Chronological Monotonicity** | Strict ascending order within & across splits | **True** | **PASSED** |
 | **Chronological Split Discipline** | Train -> Val -> Test strict time partitions | **70% / 15% / 15%** | **PASSED** |
-| **Leakage-Free Normalization** | RobustScaler fit exclusively on Train | **Fitted on Train only** | **PASSED** |
+| **Purge + Embargo** | Drop windows within L+H of split boundaries | **35 windows (L=30, H=5)** | **PASSED** |
+| **LSTM Boundary Safety** | 0 sequences crossing split partitions | **100% boundary-safe** | **PASSED** |
+| **LR/LSTM Protocol Parity** | Derived from identical purged window sets | **Confirmed** | **PASSED** |
+| **Leakage-Free Normalization** | RobustScaler fit exclusively on post-purge Train | **Fitted on Train only** | **PASSED** |
 | **Future Forecast Alignment** | Target backward shift with no future feature leakage | **H=5 min horizon** | **PASSED** |
 
 ---
@@ -43,19 +46,19 @@
 ### Window Class Distribution:
 ```
 label_attack_type
-Benign                     2610
+Benign                     2475
 Infiltration-Compromise      97
 SSH-Bruteforce               82
 Infiltration-Portscan        58
-Botnet                       53
+Botnet                       48
 DDOS-LOIC-UDP                19
 DDOS-HOIC                     8
 ```
 
 ### Binary Label Distribution:
-- **Benign (0)**: 1,931 windows (65.97%)
-- **Attack (1)**: 996 windows (34.03%)
-- **Future Attack ($H=5$ min)**: 1,054 windows (36.01%)
+- **Benign (0)**: 1,861 windows (66.77%)
+- **Attack (1)**: 926 windows (33.23%)
+- **Future Attack ($H=5$ min)**: 984 windows (35.31%)
 
 ### Independent Attack Episodes (Contiguous Attack Runs):
 - **SSH-Bruteforce**: 9 independent attack episode(s)
@@ -63,7 +66,47 @@ DDOS-HOIC                     8
 - **DDOS-LOIC-UDP**: 18 independent attack episode(s)
 - **Infiltration-Compromise**: 1 independent attack episode(s)
 - **Infiltration-Portscan**: 1 independent attack episode(s)
-- **Botnet**: 11 independent attack episode(s)
+- **Botnet**: 10 independent attack episode(s)
 
 > [!NOTE]
 > **Infiltration Two-Phase Segmentation Verified**: The pipeline successfully segmented March 1 Infiltration traffic into `Infiltration-Compromise` (initial malware drop & C2 connection) and `Infiltration-Portscan` (internal lateral discovery), preserving the two-phase progression required for forecasting.
+
+---
+
+## 5. Leakage Protection: Purge + Embargo at Split Boundaries
+
+**Purge + Embargo Width**: 35 windows (LSTM lookback L=30 + forecast horizon H=5)
+
+**Rationale**: At each split boundary, windows within `lookback + horizon` distance can leak information across partitions through either the LSTM's lookback context or the forecast label's forward horizon. Purge+embargo drops these windows from BOTH sides of each boundary.
+
+### Window Counts: Before vs After Purge+Embargo
+
+| Partition | Before Purge | After Purge | Windows Dropped |
+| :--- | :--- | :--- | :--- |
+| **Train** | 2,048 | 2,013 | 35 |
+| **Validation** | 439 | 369 | 70 |
+| **Test** | 440 | 405 | 35 |
+| **Total** | 2,927 | 2,787 | 140 |
+
+### Boundary Details
+
+- **Train→Val boundary**: 35 windows dropped from train tail + 35 from val head
+- **Val→Test boundary**: 35 windows dropped from val tail + 35 from test head
+
+### LSTM Sequence Counts (post-purge)
+
+- **Train**: 2,013 windows → 1,984 LSTM sequences (lookback=30)
+- **Val**: 369 windows → 340 LSTM sequences (lookback=30)
+- **Test**: 405 windows → 376 LSTM sequences (lookback=30)
+
+### Verification Status
+
+| Check | Result |
+| :--- | :--- |
+| **Purge+Embargo Applied** | ✅ PASSED |
+| **LSTM Boundary Safety** | ✅ PASSED |
+| **LR/LSTM Protocol Parity** | ✅ CONFIRMED |
+| **Scaler Re-fit Post-Purge** | ✅ PASSED (fitted on 2013 post-purge train windows) |
+
+> [!IMPORTANT]
+> H=5 is the **primary validated forecasting horizon** (Gate 0 LOEO approved). H=10 and H=15 are sensitivity-analysis horizons only (see H_SWEEP_REPORT.md). LSTM lookback L=30 windows. Purge+embargo width = L+H = 35 windows at each split boundary.

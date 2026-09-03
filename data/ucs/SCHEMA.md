@@ -74,4 +74,20 @@ One row per directed interaction edge per 1-minute window.
 
 ## 4. Fitted Normalization Parameters: `scaler_params.yaml`
 
-Contains exact $Q_{25}, Q_{50}, Q_{75}$, scale, and `is_log1p` flags fitted strictly on the training partition for full pipeline reproducibility.
+Contains exact $Q_{25}, Q_{50}, Q_{75}$, scale, and `is_log1p` flags fitted strictly on the post-purge training partition for full pipeline reproducibility.
+
+---
+
+## 5. Downstream Sequence & Model Input Contract
+
+### Temporal Forecasting Parameters
+- **Primary Forecasting Horizon ($H$)**: $H=5$ windows (5 minutes lead time). Ground-truth validated through Gate 0 LOEO cross-validation.
+- **Sensitivity Analysis Horizons**: $H=10$ and $H=15$ windows (documented in `H_SWEEP_REPORT.md`; secondary sensitivity analysis only).
+- **LSTM Lookback ($L$)**: $L=30$ windows (30 minutes of historical context). Fixed explicit architecture constant.
+- **Purge + Embargo Width**: $W = L + H = 30 + 5 = 35$ windows at each split boundary (Train→Val, Val→Test).
+
+### LSTM Sequence Structure (`src/sequence_builder.py`)
+- **Input Tensor $X$**: Shape `(N_sequences, L=30, N_features)` per partition.
+- **Target Vector $y$**: Shape `(N_sequences,)` derived from `future_attack_label` ($H=5$) of the last window in each sequence.
+- **Boundary Safety**: Zero sequences span across split partitions. Potential sequences within $L$ windows of an embargo boundary are dropped entirely, preventing lookback leakage.
+- **Protocol Parity**: Logistic Regression (LR) flat baseline and LSTM consume data derived from the identical purged/embargoed window sets and scaler parameters.

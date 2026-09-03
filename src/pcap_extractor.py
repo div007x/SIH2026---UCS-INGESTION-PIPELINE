@@ -24,8 +24,10 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timezone
 
-# pyrefly: ignore [missing-import]
-from scapy.all import PcapReader, rdpcap, wrpcap, IP, TCP, UDP, Ether, Raw
+try:
+    from scapy.all import PcapReader, rdpcap, wrpcap, IP, TCP, UDP, Ether, Raw
+except ImportError:
+    PcapReader = rdpcap = wrpcap = IP = TCP = UDP = Ether = Raw = None
 
 
 def calculate_port_scan_monotonicity(ports: List[int]) -> float:

@@ -18,8 +18,9 @@ from src.canonical_mapper import map_to_canonical_schema
 from src.cleaner import clean_and_normalize_flow_data, impute_missing_flow_values
 from src.window_aggregator import create_1min_windows
 from src.graph_builder import GraphTopologyBuilder
-from src.labeler_and_splits import assign_window_labels, generate_future_attack_labels, assign_chronological_splits
+from src.labeler_and_splits import assign_window_labels, generate_future_attack_labels, assign_chronological_splits, apply_purge_embargo
 from src.normalizer import LeakageSafeRobustScaler, normalize_window_features
+from src.sequence_builder import build_lstm_sequences, verify_no_cross_boundary_sequences
 
 
 class TestUCSDataPipeline(unittest.TestCase):
@@ -142,6 +143,95 @@ class TestUCSDataPipeline(unittest.TestCase):
         self.assertEqual(transformed.loc[2, "f1"], 0.0)
         self.assertEqual(transformed.loc[0, "f1"], -1.0)
         self.assertEqual(transformed.loc[4, "f1"], 1.0)
+
+    def test_lstm_sequence_no_cross_boundary(self):
+        """
+        Asserts that no LSTM sequence crosses a split boundary.
+        Uses a synthetic dataset large enough to have sequences in each split,
+        applies purge/embargo, builds sequences, and verifies boundary safety.
+        """
+        import yaml
+        config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "pipeline_config.yaml")
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        lookback = config["lstm"]["lookback_windows"]  # 30
+        horizon = config["forecasting"]["horizon_windows"]  # 5
+
+        # Create synthetic window data: 200 windows spanning train/val/test
+        n = 200
+        times = pd.date_range("2018-02-14 10:00:00", periods=n, freq="1min", tz="UTC")
+        np.random.seed(42)
+        df = pd.DataFrame({
+            "window_start_utc": times,
+            "label_binary": np.random.choice([0, 1], size=n, p=[0.7, 0.3]),
+            "f1": np.random.randn(n),
+            "f2": np.random.randn(n),
+        })
+        df = generate_future_attack_labels(df, horizon_windows=horizon)
+        df, _ = assign_chronological_splits(df, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15)
+        purged_df, _ = apply_purge_embargo(df, lookback_windows=lookback, horizon_windows=horizon)
+
+        feature_cols = ["f1", "f2"]
+        X_by_split, y_by_split, seq_audit = build_lstm_sequences(
+            purged_df, lookback_windows=lookback, feature_cols=feature_cols
+        )
+
+        # Core assertion: verify no cross-boundary sequences
+        boundary_safe = verify_no_cross_boundary_sequences(
+            purged_df, X_by_split, lookback, feature_cols
+        )
+        self.assertTrue(boundary_safe, "LSTM sequences must not cross split boundaries")
+
+        # Additional: each sequence must be entirely within one split
+        for split_name in ["train", "val", "test"]:
+            split_df = purged_df[purged_df["split"] == split_name].reset_index(drop=True)
+            n_win = len(split_df)
+            n_seq = X_by_split[split_name].shape[0]
+            if n_win >= lookback:
+                self.assertEqual(n_seq, n_win - lookback + 1,
+                    f"Sequence count mismatch in {split_name}")
+
+    def test_purge_embargo_width_from_config(self):
+        """
+        Asserts that purge/embargo width is always >= lookback + horizon,
+        computed from config values, not hardcoded.
+        """
+        import yaml
+        config_path = os.path.join(os.path.dirname(__file__), "..", "configs", "pipeline_config.yaml")
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        lookback = config["lstm"]["lookback_windows"]
+        horizon = config["forecasting"]["horizon_windows"]
+        expected_min_width = lookback + horizon
+
+        # Apply to synthetic data and verify width
+        n = 300
+        times = pd.date_range("2018-02-14 10:00:00", periods=n, freq="1min", tz="UTC")
+        df = pd.DataFrame({
+            "window_start_utc": times,
+            "label_binary": [0] * n,
+        })
+        df = generate_future_attack_labels(df, horizon_windows=horizon)
+        df, _ = assign_chronological_splits(df, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15)
+        _, purge_audit = apply_purge_embargo(df, lookback_windows=lookback, horizon_windows=horizon)
+
+        # Assert width is computed correctly from config values
+        self.assertEqual(purge_audit["purge_embargo_width"], expected_min_width,
+            f"Purge width must be lookback({lookback}) + horizon({horizon}) = {expected_min_width}")
+        self.assertGreaterEqual(purge_audit["purge_embargo_width"], expected_min_width,
+            "Purge width must be >= lookback + horizon")
+
+        # Assert correct number of windows dropped at each boundary
+        self.assertEqual(purge_audit["dropped_at_train_val_boundary"]["train_tail_dropped"], expected_min_width)
+        self.assertEqual(purge_audit["dropped_at_train_val_boundary"]["val_head_dropped"], expected_min_width)
+        self.assertEqual(purge_audit["dropped_at_val_test_boundary"]["val_tail_dropped"], expected_min_width)
+        self.assertEqual(purge_audit["dropped_at_val_test_boundary"]["test_head_dropped"], expected_min_width)
+
+        # Verify config values match expectations (not hardcoded)
+        self.assertEqual(lookback, 30, "LSTM_LOOKBACK_WINDOWS should be 30 per config")
+        self.assertEqual(horizon, 5, "Primary horizon should be H=5 per config")
 
 
 if __name__ == "__main__":

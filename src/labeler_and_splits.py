@@ -133,3 +133,94 @@ def assign_chronological_splits(
     }
 
     return window_df, split_audit
+
+
+def apply_purge_embargo(
+    window_df: pd.DataFrame,
+    lookback_windows: int,
+    horizon_windows: int,
+) -> Tuple[pd.DataFrame, Dict[str, any]]:
+    """
+    Applies purge + embargo at both split boundaries (train→val, val→test).
+
+    At each boundary, drops `width` windows from BOTH sides:
+      - Last `width` windows of the earlier partition
+      - First `width` windows of the later partition
+
+    Width = lookback_windows + horizon_windows (computed, never hardcoded).
+    This ensures no window's LSTM lookback OR forecast horizon can reach
+    across a split boundary.
+
+    Parameters
+    ----------
+    window_df : pd.DataFrame
+        Must already have 'split' column from assign_chronological_splits().
+    lookback_windows : int
+        LSTM lookback length (L). Read from config, not hardcoded.
+    horizon_windows : int
+        Forecast horizon (H). Read from config, not hardcoded.
+
+    Returns
+    -------
+    purged_df : pd.DataFrame
+        DataFrame with embargo-zone windows removed (split column preserved).
+    audit : dict
+        Detailed accounting of windows dropped at each boundary.
+    """
+    width = lookback_windows + horizon_windows
+
+    window_df = window_df.sort_values("window_start_utc").reset_index(drop=True)
+
+    # Identify partition index ranges
+    train_idx = window_df.index[window_df["split"] == "train"]
+    val_idx = window_df.index[window_df["split"] == "val"]
+    test_idx = window_df.index[window_df["split"] == "test"]
+
+    original_counts = {
+        "train": len(train_idx),
+        "val": len(val_idx),
+        "test": len(test_idx),
+        "total": len(window_df),
+    }
+
+    # Compute indices to drop at train→val boundary
+    train_drop = set(train_idx[-width:]) if len(train_idx) >= width else set(train_idx)
+    val_drop_front = set(val_idx[:width]) if len(val_idx) >= width else set(val_idx)
+
+    # Compute indices to drop at val→test boundary
+    val_drop_back = set(val_idx[-width:]) if len(val_idx) >= width else set(val_idx)
+    test_drop = set(test_idx[:width]) if len(test_idx) >= width else set(test_idx)
+
+    # Combined val drops (front from train→val boundary + back from val→test boundary)
+    val_drop = val_drop_front | val_drop_back
+
+    all_dropped_idx = train_drop | val_drop | test_drop
+
+    purged_df = window_df.drop(index=all_dropped_idx).reset_index(drop=True)
+
+    purged_counts = {
+        "train": int((purged_df["split"] == "train").sum()),
+        "val": int((purged_df["split"] == "val").sum()),
+        "test": int((purged_df["split"] == "test").sum()),
+        "total": len(purged_df),
+    }
+
+    audit = {
+        "purge_embargo_width": width,
+        "lookback_windows": lookback_windows,
+        "horizon_windows": horizon_windows,
+        "original_counts": original_counts,
+        "dropped_at_train_val_boundary": {
+            "train_tail_dropped": len(train_drop),
+            "val_head_dropped": len(val_drop_front),
+        },
+        "dropped_at_val_test_boundary": {
+            "val_tail_dropped": len(val_drop_back),
+            "test_head_dropped": len(test_drop),
+        },
+        "total_val_dropped": len(val_drop),
+        "total_windows_dropped": len(all_dropped_idx),
+        "purged_counts": purged_counts,
+    }
+
+    return purged_df, audit

@@ -19,8 +19,11 @@ This repository provides the production data engineering pipeline that processes
 5. **Feature-Presence Masks**: Explicit mask indicators (`mask_has_traffic_volume_features`, `mask_has_flow_timing_features`, `mask_has_packet_level_features`, `mask_has_tcp_flags`, `mask_has_graph_topology`, `mask_has_identity_auth`).
 6. **Graph Construction per Window**: Directed interaction topology per window with integer node anonymization and lookup mapping (`node_lookup.parquet`).
 7. **Two-Phase Infiltration Segmentation**: Distinguishes `Infiltration-Compromise` (initial malware delivery) and `Infiltration-Portscan` (internal lateral discovery) on March 1.
-8. **Multi-Horizon Future Forecasting ($H=5$ min)**: Derives target `future_attack_label` strictly by backward shifting target masks with zero future feature leakage.
-9. **Leakage-Free Normalization**: Fits `RobustScaler` (median & IQR) and `Log1p` transforms exclusively on the training split (70%) and applies them to validation (15%) and test (15%) partitions.
+8. **Multi-Horizon Future Forecasting ($H=5$ min Primary)**: Derives target `future_attack_label` strictly by backward shifting target masks with zero future feature leakage. Primary validated horizon is $H=5$ windows (5 minutes lead time, validated through Gate 0 LOEO). Horizons $H=10$ and $H=15$ are secondary sensitivity-analysis horizons only.
+9. **Temporal Leakage Protection (Purge + Embargo)**: Enforces $W = L + H = 30 + 5 = 35$ window purge/embargo zone at both Train→Val and Val→Test boundaries (dropping 140 windows total). Ensures zero future-horizon or past-lookback overlap across partitions.
+10. **Boundary-Safe LSTM Sequence Construction**: Constructs input sequences of length $L=30$ windows (`src/sequence_builder.py`). Rejects any sequence crossing split boundaries.
+11. **LR/LSTM Protocol Parity**: Guarantees that both tabular Logistic Regression (flat windows) and LSTM (sequences) consume the exact same purged/embargoed window sets and training-fit scaler parameters.
+12. **Leakage-Free Normalization**: Fits `RobustScaler` (median & IQR) and `Log1p` transforms exclusively on the post-purge training split (2,013 windows) and applies them to validation (369 windows) and test (405 windows) partitions.
 
 ---
 
@@ -28,7 +31,7 @@ This repository provides the production data engineering pipeline that processes
 
 ```
 ├── configs/
-│   ├── pipeline_config.yaml           # Master pipeline settings, split ratios, horizons
+│   ├── pipeline_config.yaml           # Master pipeline settings, split ratios, horizons, LSTM lookback
 │   ├── canonical_mapping.yaml          # Audit-ready 80-column canonical mapping
 │   └── attack_timelines.yaml           # Ground truth Table 2 attack timelines
 ├── src/
@@ -38,19 +41,20 @@ This repository provides the production data engineering pipeline that processes
 │   ├── cleaner.py                     # Stage 3: Data cleaning & UTC normalization
 │   ├── window_aggregator.py           # Stage 4: 1-min windowing & feature masks
 │   ├── graph_builder.py               # Stage 5: Per-window graph topology
-│   ├── labeler_and_splits.py          # Stage 6: Attack labeling & chronological splits
-│   ├── normalizer.py                  # Stage 7: Leakage-free RobustScaler
+│   ├── labeler_and_splits.py          # Stage 6: Attack labeling, chronological splits & purge+embargo
+│   ├── normalizer.py                  # Stage 7: Leakage-free RobustScaler (post-purge train fit)
+│   ├── sequence_builder.py            # Stage 8: Boundary-safe LSTM sequence construction & LR parity
 │   └── pipeline_runner.py             # Master pipeline runner & audit generator
 ├── tests/
-│   └── test_pipeline.py               # Unit & regression test suite
+│   └── test_pipeline.py               # Unit & regression test suite (10/10 passing)
 ├── data/
 │   ├── raw/                           # Raw CSE-CIC-IDS2018 CSV files
 │   ├── intermediate/                  # Staged cleaned parquet files per day
 │   └── ucs/                           # Final Unified Cyber State (S_t) artifacts
-│       ├── ucs_windows.parquet        # Flat temporal feature state S(t)
-│       ├── ucs_graph_edgelists.parquet# Graph topology edge lists
-│       ├── node_lookup.parquet        # Anonymized node ID mapping
-│       ├── scaler_params.yaml         # Fitted normalization parameters
+│       ├── ucs_windows.parquet        # Flat temporal feature state S(t) (purged)
+│       ├── ucs_graph_edgelists.parquet# Graph topology edge lists (unmodified)
+│       ├── node_lookup.parquet        # Anonymized node ID mapping (unmodified)
+│       ├── scaler_params.yaml         # Fitted normalization parameters (post-purge)
 │       ├── SCHEMA.md                  # Comprehensive column documentation
 │       └── VALIDATION_REPORT.md       # Audit statistics & quality gates
 └── README.md

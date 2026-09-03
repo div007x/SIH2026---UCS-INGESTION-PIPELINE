@@ -23,9 +23,22 @@ windowing:
 
 # Future forecasting label
 forecasting:
-  horizon_windows: 15  # H = 10 windows (10 minutes lead time)
+  horizon_windows: 5  # H = 5 windows (5 minutes lead time) — primary validated horizon
+  # H=10 and H=15 are sensitivity-analysis horizons only (see H_SWEEP_REPORT.md)
   target_col: "label_binary"
   future_label_col: "future_attack_label"
+
+# LSTM temporal model parameters
+lstm:
+  lookback_windows: 30  # L = 30 windows (30 minutes of temporal context)
+
+# Purge + Embargo (temporal leakage protection at split boundaries)
+# Width is computed as lookback_windows + horizon_windows = 30 + 5 = 35
+# Applied at both train→val and val→test boundaries
+purge_embargo:
+  # Width is NOT hardcoded — it is computed from lstm.lookback_windows + forecasting.horizon_windows
+  # Stored here for documentation only; code reads the component values and computes width
+  description: "Drop windows within (lookback + horizon) of each split boundary to prevent temporal leakage"
 
 # Chronological Train / Val / Test Splits (within each day or chronologically ordered windows)
 splits:
