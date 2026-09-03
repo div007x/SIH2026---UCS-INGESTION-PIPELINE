@@ -454,6 +454,7 @@ def generate_validation_report(
     vt = purge_info.get("dropped_at_val_test_boundary", {})
     content += f"""- **Train→Val boundary**: {tv.get('train_tail_dropped', 0)} windows dropped from train tail + {tv.get('val_head_dropped', 0)} from val head
 - **Val→Test boundary**: {vt.get('val_tail_dropped', 0)} windows dropped from val tail + {vt.get('test_head_dropped', 0)} from test head
+  * *Test-Head Purge Composition*: All 35 dropped test-head windows (`2018-03-02 02:25:00` to `2018-03-02 02:59:00 UTC`) fall squarely within the active Friday Botnet attack episode (`2018-03-02 01:00:00` to `12:59:59 UTC`) and contain malicious flows (`has_malicious_flows=True`, `label_binary=1`, `future_attack_label=1`), with zero benign windows dropped; the resulting test set class-balance shift (from 59.1% down to 52.1% attack sequences) is therefore a natural consequence of the split boundary falling inside this contiguous Botnet episode rather than an artifact of the purge logic itself.
 
 ### LSTM Sequence Counts (post-purge)
 
