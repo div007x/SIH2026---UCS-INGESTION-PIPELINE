@@ -95,7 +95,7 @@ def normalize_window_features(
     metadata_cols = {
         "window_id", "window_start_utc", "window_end_utc", "source_day",
         "split", "label_binary", "label_attack_type", "future_attack_label",
-        "raw_label_dominant", "has_malicious_flows",
+        "raw_label_dominant", "has_malicious_flows", "episode_id",
         "mask_has_traffic_volume_features", "mask_has_flow_timing_features",
         "mask_has_packet_level_features", "mask_has_tcp_flags",
         "mask_has_graph_topology", "mask_has_identity_auth"

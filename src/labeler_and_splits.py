@@ -7,6 +7,7 @@ leakage-free future attack forecast targets, and assigns strict chronological sp
 import os
 import yaml
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 
@@ -224,3 +225,44 @@ def apply_purge_embargo(
     }
 
     return purged_df, audit
+
+
+def assign_episode_ids(window_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Assigns granular episode_id to every window based on unbroken contiguous runs.
+    An episode is an unbroken contiguous run of windows sharing the same source_day
+    and label_attack_type.
+
+    Format: {source_day}_{attack_type}_{run_index}
+    where run_index is 0-indexed per (source_day, label_attack_type).
+
+    Parameters
+    ----------
+    window_df : pd.DataFrame
+        Window dataframe containing 'source_day', 'label_attack_type', and 'window_start_utc'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with added 'episode_id' column.
+    """
+    window_df = window_df.sort_values("window_start_utc").reset_index(drop=True)
+    day_shift = window_df["source_day"] != window_df["source_day"].shift(1)
+    atk_shift = window_df["label_attack_type"] != window_df["label_attack_type"].shift(1)
+    block_id = (day_shift | atk_shift).cumsum()
+
+    block_meta = window_df.groupby(block_id, sort=False).agg(
+        source_day=("source_day", "first"),
+        label_attack_type=("label_attack_type", "first")
+    ).reset_index()
+
+    block_meta["run_index"] = block_meta.groupby(["source_day", "label_attack_type"]).cumcount()
+    block_meta["episode_id"] = (
+        block_meta["source_day"].astype(str) + "_" +
+        block_meta["label_attack_type"].astype(str) + "_" +
+        block_meta["run_index"].astype(str)
+    )
+
+    block_to_ep = dict(zip(block_meta.iloc[:, 0], block_meta["episode_id"]))
+    window_df["episode_id"] = block_id.map(block_to_ep)
+    return window_df

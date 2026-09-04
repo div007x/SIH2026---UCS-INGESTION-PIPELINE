@@ -15,6 +15,7 @@ One row per 1-minute time window.
 | `window_start_utc` | Metadata | `datetime64[ns, UTC]` | Floor (60s) | UTC start timestamp of the 1-minute window |
 | `window_end_utc` | Metadata | `datetime64[ns, UTC]` | Add (60s) | UTC end timestamp of the 1-minute window |
 | `source_day` | Metadata | `string` | Ingestion | Day identifier from source CSV filename |
+| `episode_id` | Metadata | `string` | Contiguous Run Segmentation | Granular episode identifier (`{source_day}_{attack_type}_{run_index}`) |
 | `split` | Metadata | `string` | Chronological Partition | Dataset partition: `train`, `val`, `test` |
 | `label_binary` | Target | `int64` | Ground Truth Alignment | 0 for benign, 1 for attack present in window |
 | `label_attack_type` | Target | `string` | Canonical Mapping | Fine-grained attack type or benign |
@@ -74,20 +75,4 @@ One row per directed interaction edge per 1-minute window.
 
 ## 4. Fitted Normalization Parameters: `scaler_params.yaml`
 
-Contains exact $Q_{25}, Q_{50}, Q_{75}$, scale, and `is_log1p` flags fitted strictly on the post-purge training partition for full pipeline reproducibility.
-
----
-
-## 5. Downstream Sequence & Model Input Contract
-
-### Temporal Forecasting Parameters
-- **Primary Forecasting Horizon ($H$)**: $H=5$ windows (5 minutes lead time). Ground-truth validated through Gate 0 LOEO cross-validation.
-- **Sensitivity Analysis Horizons**: $H=10$ and $H=15$ windows (documented in `H_SWEEP_REPORT.md`; secondary sensitivity analysis only).
-- **LSTM Lookback ($L$)**: $L=30$ windows (30 minutes of historical context). Fixed explicit architecture constant.
-- **Purge + Embargo Width**: $W = L + H = 30 + 5 = 35$ windows at each split boundary (Train→Val, Val→Test).
-
-### LSTM Sequence Structure (`src/sequence_builder.py`)
-- **Input Tensor $X$**: Shape `(N_sequences, L=30, N_features)` per partition.
-- **Target Vector $y$**: Shape `(N_sequences,)` derived from `future_attack_label` ($H=5$) of the last window in each sequence.
-- **Boundary Safety**: Zero sequences span across split partitions. Potential sequences within $L$ windows of an embargo boundary are dropped entirely, preventing lookback leakage.
-- **Protocol Parity**: Logistic Regression (LR) flat baseline and LSTM consume data derived from the identical purged/embargoed window sets and scaler parameters.
+Contains exact $Q_{25}, Q_{50}, Q_{75}$, scale, and `is_log1p` flags fitted strictly on the training partition for full pipeline reproducibility.

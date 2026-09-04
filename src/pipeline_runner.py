@@ -25,7 +25,7 @@ from src.canonical_mapper import map_to_canonical_schema, load_canonical_mapping
 from src.cleaner import clean_and_normalize_flow_data, impute_missing_flow_values
 from src.window_aggregator import create_1min_windows
 from src.graph_builder import GraphTopologyBuilder
-from src.labeler_and_splits import assign_window_labels, generate_future_attack_labels, assign_chronological_splits, apply_purge_embargo
+from src.labeler_and_splits import assign_window_labels, generate_future_attack_labels, assign_chronological_splits, apply_purge_embargo, assign_episode_ids
 from src.normalizer import normalize_window_features
 from src.sequence_builder import build_lstm_sequences, verify_no_cross_boundary_sequences, get_flat_window_data_for_lr
 
@@ -233,6 +233,10 @@ def run_pipeline(config_path: str = "configs/pipeline_config.yaml") -> Dict[str,
     pcap_covered_cnt = int(has_pcap_coverage.sum())
     print(f"     Merged {len(pkt_cols)} packet features. Real PCAP coverage: {pcap_covered_cnt}/{len(full_windows_df)} windows ({pcap_covered_cnt/len(full_windows_df)*100:.1f}%).")
 
+    # Assign granular contiguous episode IDs
+    print("[*] Assigning contiguous episode IDs ({source_day}_{attack_type}_{run_index})...")
+    full_windows_df = assign_episode_ids(full_windows_df)
+
     # STAGE 7: Leakage-Safe Feature Normalization (re-fit on POST-PURGE train partition)
     print("[*] Stage 7: Fitting RobustScaler solely on post-purge train split and normalizing all features (flow + packet)...")
     scaler_params_file = os.path.join(output_dir, "scaler_params.yaml")
@@ -249,7 +253,7 @@ def run_pipeline(config_path: str = "configs/pipeline_config.yaml") -> Dict[str,
     metadata_cols = {
         "window_id", "window_start_utc", "window_end_utc", "source_day",
         "split", "label_binary", "label_attack_type", "future_attack_label",
-        "raw_label_dominant", "has_malicious_flows",
+        "raw_label_dominant", "has_malicious_flows", "episode_id",
         "mask_has_traffic_volume_features", "mask_has_flow_timing_features",
         "mask_has_packet_level_features", "mask_has_tcp_flags",
         "mask_has_graph_topology", "mask_has_identity_auth"
@@ -508,6 +512,7 @@ One row per 1-minute time window.
 | `window_start_utc` | Metadata | `datetime64[ns, UTC]` | Floor (60s) | UTC start timestamp of the 1-minute window |
 | `window_end_utc` | Metadata | `datetime64[ns, UTC]` | Add (60s) | UTC end timestamp of the 1-minute window |
 | `source_day` | Metadata | `string` | Ingestion | Day identifier from source CSV filename |
+| `episode_id` | Metadata | `string` | Contiguous Run Segmentation | Granular episode identifier (`{source_day}_{attack_type}_{run_index}`) |
 | `split` | Metadata | `string` | Chronological Partition | Dataset partition: `train`, `val`, `test` |
 | `label_binary` | Target | `int64` | Ground Truth Alignment | 0 for benign, 1 for attack present in window |
 | `label_attack_type` | Target | `string` | Canonical Mapping | Fine-grained attack type or benign |
