@@ -22,7 +22,7 @@ This fix is applied consistently across all H values.
 - **Features unchanged:** Same traffic features (Set A), same schedule features (Set B), class_weight='balanced'
 - **Evaluation:** Decision Tree classifiers with max_depth=5, F1 and PR-AUC metrics
 - **Cross-validation:** Leave-One-Episode-Out on multi-episode attack types
-- **Attack types in LOEO:** SSH-Bruteforce (9 episodes), DDOS-LOIC-UDP (18 episodes), Botnet (11 episodes)
+- **Attack types in LOEO:** SSH-Bruteforce (9 episodes), DDOS-LOIC-UDP (18 episodes), Botnet (10 post-purge episodes; 37 folds total)
 
 ---
 

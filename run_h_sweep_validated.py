@@ -1,5 +1,5 @@
 """
-H-Sweep for Gate 0 Protocol 4: Run full 38-fold LOEO at H=5, 10, 15
+H-Sweep for Gate 0 Protocol 4: Run full 37-fold LOEO at H=5, 10, 15
 Uses the validated gate0_protocol4_loeo.py logic (no rewrites), 
 only changing H parameter and adding explicit error handling.
 """
@@ -17,11 +17,11 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 
 def run_loeo_for_h(h_value):
     """
-    Run full 38-fold LOEO (all 3 multi-episode attack types) at horizon H=h_value.
+    Run full 37-fold LOEO (all 3 multi-episode attack types) at horizon H=h_value.
     Uses validated gate0_protocol4_loeo.py logic with explicit error handling.
     """
     print(f"\n\n{'='*100}")
-    print(f"RUNNING FULL 38-FOLD LOEO FOR H={h_value}")
+    print(f"RUNNING FULL 37-FOLD LOEO FOR H={h_value}")
     print(f"{'='*100}\n")
     
     # Load base data
@@ -160,7 +160,7 @@ def run_loeo_for_h(h_value):
             print(traceback.format_exc())
             raise
     
-    # Run LOEO (full 38 folds across 3 multi-episode types)
+    # Run LOEO (full 37 folds across 3 multi-episode types)
     all_fold_results = []
     np.random.seed(42)
     fold_counter = 0
@@ -328,7 +328,7 @@ def run_loeo_for_h(h_value):
 def print_h_comparison(results_h5, results_h10, results_h15):
     """Print side-by-side H=5, 10, 15 comparison."""
     print("\n\n" + "=" * 160)
-    print("H-SWEEP COMPARISON: FULL 38-FOLD LOEO AT H=5, 10, 15")
+    print("H-SWEEP COMPARISON: FULL 37-FOLD LOEO AT H=5, 10, 15")
     print("=" * 160 + "\n")
     
     results = [results_h5, results_h10, results_h15]
@@ -368,7 +368,7 @@ def print_h_comparison(results_h5, results_h10, results_h15):
     print(row)
 
 if __name__ == "__main__":
-    print("[*] H-Sweep: Full 38-Fold LOEO at H=5, 10, 15")
+    print("[*] H-Sweep: Full 37-Fold LOEO at H=5, 10, 15")
     print("[*] Using validated gate0_protocol4_loeo.py logic with explicit error handling\n")
     
     # Check if H=5 results already exist

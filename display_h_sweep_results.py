@@ -2,7 +2,7 @@
 import pandas as pd
 
 print('='*160)
-print('H-SWEEP COMPARISON: FULL 38-FOLD LOEO AT H=5, 10, 15')
+print('H-SWEEP COMPARISON: FULL 37-FOLD LOEO AT H=5, 10, 15')
 print('='*160 + '\n')
 
 # Load results

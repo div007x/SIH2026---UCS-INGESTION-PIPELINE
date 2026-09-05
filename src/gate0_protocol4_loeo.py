@@ -1,6 +1,6 @@
 """
 Gate 0 Protocol 4: Leave-One-Episode-Out (LOEO) Cross-Validation
-For multi-episode attack types: SSH-Bruteforce (9 eps), DDOS-LOIC-UDP (18 eps), Botnet (11 eps)
+For multi-episode attack types: SSH-Bruteforce (9 eps), DDOS-LOIC-UDP (18 eps), Botnet (10 post-purge eps; 37 folds total)
 """
 import pandas as pd
 import numpy as np
