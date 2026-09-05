@@ -14,9 +14,6 @@ data/raw/
 # Intermediate datasets
 data/intermediate/
 
-# Large UCS dataset files
-data/ucs/*.parquet
-data/ucs/*.csv
 
 # Generated experiment outputs
 *.txt
