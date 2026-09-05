@@ -75,3 +75,11 @@ python src/pipeline_runner.py
 ```
 
 All output datasets and audit reports are written directly to `data/ucs/`.
+
+---
+
+## ⚠️ Limitations
+
+- **Contiguous Episode Granularity**: Pulsing/intermittent C2 traffic can be split into multiple single-window episodes under the strict contiguity rule; this is documented and does not affect leakage boundaries.
+- **Packet-Level Feature Scope**: Raw PCAP packet extraction is currently scoped to Wednesday-14-02-2018 (`SSH-Bruteforce`); all remaining days use flow-level telemetry and have `mask_has_packet_level_features = 0.0`.
+
