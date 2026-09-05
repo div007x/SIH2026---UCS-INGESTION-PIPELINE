@@ -22,8 +22,12 @@ data/ucs/*.csv
 *.txt
 *.json
 
+# Scratch / diagnostic scripts
+scratch/
+
 # IDE / OS files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
