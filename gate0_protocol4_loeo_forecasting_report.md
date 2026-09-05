@@ -64,25 +64,50 @@ This indicates the F1=0 collapse was not caused by a 99/1 class imbalance, but r
 
 ## 4. Per-Type Mean ± Std
 
+> [!WARNING]
+> **SUPERSEDED (38-fold, Botnet=11).** The table below is from the original 38-fold run. See Section 4b for the authoritative 37-fold rerun.
+
 | Attack Type | Folds | Set A F1 | Set A PR-AUC | Set B F1 | Set B PR-AUC |
 | :--- | ---: | :--- | :--- | :--- | :--- |
 | **Botnet** | 11 | 0.0000 ± 0.0000 | 0.1667 ± 0.3073 | 0.1515 ± 0.3452 | 0.2803 ± 0.4350 |
 | **DDOS-LOIC-UDP** | 18 | 0.0000 ± 0.0000 | 0.1206 ± 0.2481 | 0.1667 ± 0.3284 | 0.2546 ± 0.4087 |
 | **SSH-Bruteforce** | 9 | 0.0000 ± 0.0000 | 0.0778 ± 0.1247 | 0.1429 ± 0.3350 | 0.3148 ± 0.4747 |
 
+## 4b. Per-Type Mean ± Std (37-FOLD RERUN — AUTHORITATIVE)
+
+| Attack Type | Folds | Set A F1 | Set A PR-AUC | Set B F1 | Set B PR-AUC |
+| :--- | ---: | :--- | :--- | :--- | :--- |
+| **SSH-Bruteforce** | 9 | 0.2222 ± 0.4410 | 0.3286 ± 0.4176 | 0.3280 ± 0.4412 | 0.5005 ± 0.4775 |
+| **DDOS-LOIC-UDP** | 18 | 0.0185 ± 0.0786 | 0.1406 ± 0.2646 | 0.2222 ± 0.3792 | 0.2546 ± 0.3840 |
+| **Botnet** | 10 | 0.1167 ± 0.2491 | 0.2627 ± 0.3706 | 0.2400 ± 0.3288 | 0.4367 ± 0.4975 |
+
 ## 5. Overall Aggregate & Verdict
+
+> [!WARNING]
+> **SUPERSEDED (38-fold).** See Section 5b for the authoritative 37-fold rerun.
 
 | Metric | Set A (Traffic+Packet) | Set B (Schedule-Only) |
 | :--- | :--- | :--- |
-| **F1** | **0.0000 +/- 0.0000** | **0.1566 +/- 0.3258** |
-| **PR-AUC** | **0.1238 +/- 0.2413** | **0.2763 +/- 0.4210** |
-| Head-to-Head (38 folds) | **A wins 0** | B wins 8, Ties 30 |
+| **F1** | ~~**0.0000 +/- 0.0000**~~ | ~~**0.1566 +/- 0.3258**~~ |
+| **PR-AUC** | ~~**0.1238 +/- 0.2413**~~ | ~~**0.2763 +/- 0.4210**~~ |
+| Head-to-Head (38 folds) | ~~**A wins 0**~~ | ~~B wins 8, Ties 30~~ |
 
-### VERDICT: FAIL 
-Even with `class_weight='balanced'`, Set A completely fails on the forecasting task (F1 = 0.0000). Set A's PR-AUC is severely depressed (0.1238), showing that the raw probabilistic scores do not separate the classes effectively.
+## 5b. Overall Aggregate & Verdict (37-FOLD RERUN — AUTHORITATIVE)
 
-The collapse is not an artifact of an imbalanced training set (36% positive). It indicates a genuine, honest lack of signal: the physical traffic/packet features in the H=5 pre-onset window simply do not diverge meaningfully from benign traffic. 
+| Metric | Set A (Traffic+Packet) | Set B (Schedule-Only) |
+| :--- | :--- | :--- |
+| **F1** | **0.0946 +/- 0.2622** | **0.2528 +/- 0.3743** |
+| **PR-AUC** | **0.2193 +/- 0.3358** | **0.3636 +/- 0.4408** |
+| Head-to-Head (37 folds) | **A wins 2** | B wins 11, Ties 24 |
+| Mean +/- 1 Std Range (F1) | [-0.168, 0.357] | [-0.122, 0.627] |
+| **Ranges Overlap?** | **Yes** | |
 
-The two candidate explanations remain valid and require deeper probing:
+### VERDICT: CONDITIONAL PASS (was FAIL under 38-fold)
+
+Under the corrected 37-fold grouping, Set A now shows **non-zero F1** (0.0946 vs the old 0.0000) due to the `run_loeo_corrected.py` harness using the canonical string-based `episode_id` / `forecast_episode_id` columns (which correctly assign pre-onset windows via day-safe bfill), whereas the old `gate0_protocol4_loeo.py` used a global numeric cumsum that did not respect day boundaries for bfill.
+
+However, Set B (schedule-only) still substantially outperforms Set A on onset forecasting (F1: 0.253 vs 0.095, PR-AUC: 0.364 vs 0.219). The confidence intervals overlap massively, and Set A wins only 2/37 folds head-to-head. The core finding is unchanged: **the physical traffic/packet features in the H=5 pre-onset window do not yet outperform a schedule heuristic for onset forecasting.**
+
+The two candidate explanations remain valid:
 (a) The H=5 window is too short; latent packet deviations aren't visible yet.
 (b) The schedule signal is genuinely a stronger predictor of future onset in this dataset than any latent behavioral telemetry.

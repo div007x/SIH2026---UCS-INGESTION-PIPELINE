@@ -111,3 +111,72 @@ DDOS-HOIC                     8
 
 > [!IMPORTANT]
 > H=5 is the **primary validated forecasting horizon** (Gate 0 LOEO approved). H=10 and H=15 are sensitivity-analysis horizons only (see H_SWEEP_REPORT.md). LSTM lookback L=30 windows. Purge+embargo width = L+H = 35 windows at each split boundary.
+
+---
+
+## 6. Purge/Embargo Episode-Drop Rule & Authoritative 37-Fold LOEO Grouping
+
+### General Rule
+
+> **Any contiguous attack episode shorter than the purge/embargo width (35 windows) that falls within `width` windows of a split boundary may be fully or partially removed by purge/embargo, reducing the eligible episode count for LOEO below the raw pre-purge episode count.**
+
+This rule is not specific to Botnet or to this dataset — it is a structural consequence of the leakage-protection design. Any short episode whose windows all happen to sit inside an embargo zone at a split boundary will be dropped entirely from the post-purge window set and will therefore not appear as an eligible LOEO fold unit.
+
+### Instance That Triggered This Rule (Botnet, Val→Test Boundary)
+
+| Metric | Value |
+| :--- | :--- |
+| **Pre-purge contiguous Botnet episodes** | **11** |
+| **Post-purge eligible Botnet episodes** | **10** |
+| **Episode eliminated** | 1 short Botnet episode fully consumed by the Val→Test embargo zone |
+| **Purge/embargo width applied** | 35 windows (L=30 + H=5) |
+
+One Botnet episode was short enough that all of its windows fell within the 35-window embargo zone at the Val→Test split boundary. After purge+embargo was applied, that episode had zero surviving windows in the post-purge dataset and therefore did not appear as an eligible held-out fold unit.
+
+### Authoritative Episode Count for the 37-Fold LOEO Grouping
+
+The corrected, authoritative LOEO evaluation uses **37 folds** (validated run `loeo_37fold_results.csv`, 2026-09-05), scoped to **multi-episode attack types only** — types with ≥2 independent contiguous episodes in the post-purge dataset:
+
+| Attack Type | Post-Purge Episodes | LOEO Folds | Eligible for LOEO? |
+| :--- | :---: | :---: | :--- |
+| **SSH-Bruteforce** | 9 | 9 | ✅ Multi-episode |
+| **DDOS-LOIC-UDP** | 18 | 18 | ✅ Multi-episode |
+| **Botnet** | **10** | **10** | ✅ Multi-episode |
+| DDOS-HOIC | 1 | — | ❌ Singleton — excluded |
+| Infiltration-Compromise | 1 | — | ❌ Singleton — excluded |
+| Infiltration-Portscan | 1 | — | ❌ Singleton — excluded |
+| **Multi-ep Total** | **37** | **37** | — |
+| Raw total (all types) | 40 | — | — |
+
+> [!WARNING]
+> The earlier 38-fold result (`loeo_fold_results_behavior_only.csv`, 2026-09-04) was computed against a superseded 11-Botnet-episode grouping and is **no longer authoritative**. The corrected post-purge dataset has 10 Botnet episodes, yielding **37 multi-episode LOEO folds** (9 + 18 + 10). All Gate 0 LOEO numbers have been rerun under this corrected grouping; see `gate0_leakage_report.md` and `gate0_protocol4_loeo_forecasting_report.md` for the updated results.
+
+> [!NOTE]
+> The "40" appearing in earlier investigation notes refers to the **raw total attack episode count** across all types including singletons — not the LOEO-eligible subset.
+
+---
+
+## 7. Packet-Level Feature Coverage Limitation
+
+> Packet-level features validated for SSH-Bruteforce (14-02-2018) only; flow-level covers all six days; full extraction scoped post-MVP (~250GB download cost across remaining 5 days).
+
+### Cross-Reference: S3 Download Cost Verification
+
+The ~250 GB figure was cross-referenced against live S3 bucket contents (`cse-cic-ids2018.s3.amazonaws.com`):
+
+| Day | pcap.zip Size (GB) |
+| :--- | ---: |
+| 21-02-2018 | 49.8 |
+| 22-02-2018 | 46.8 |
+| 28-02-2018 | 49.6 |
+| 01-03-2018 | 48.8 |
+| 02-03-2018 | 41.7 |
+| **Total** | **236.7** |
+
+Actual compressed total: **236.7 GB** (~95% of the stated ~250 GB round figure). The ~250 GB claim is consistent with the S3 data.
+
+### Evidence
+
+- `mask_has_packet_level_features == 1` exists exclusively for 14-02-2018 (543/543 windows). All other days have `mask_has_packet_level_features == 0`.
+- `src/pcap_extractor.py` hardcodes `target_day="14-02-2018"`. No other day is referenced in any code path, config, git commit, or README.
+- No `.pcap` or `.pcapng` files exist locally for any day.

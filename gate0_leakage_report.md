@@ -14,8 +14,10 @@
 | | **Set B** (Hour+Day Only) | **0.7893** | **0.7151** | **0.8808** | **0.8386** | Precision drops ~20% (0.9161 -> 0.7151) |
 | **3. Episode-Grouped Diagnostic**<br>*(637 windows: Whole episodes held out)* | **Set A** (Traffic+Packet) | **0.2080** | **0.1703** | **0.2670** | **0.4380** | **Below majority baseline (0.724)** |
 | | **Set B** (Hour+Day Only) | **0.5688** | **0.4822** | **0.6932** | **0.7096** | Schedule baseline still dominant |
-| **4. LOEO Cross-Validation**<br>*(38 folds across 3 multi-episode types)* | **Set A** (Traffic+Packet) | **0.9274 +/- 0.1225** | **0.9689 +/- 0.0879** | **0.9070 +/- 0.1629** | — | **CONDITIONAL PASS** (ranges overlap) |
-| | **Set B** (Hour+Day Only) | **0.8884 +/- 0.1014** | **0.8275 +/- 0.1572** | **0.9826 +/- 0.0485** | — | Schedule baseline, high recall |
+| **4. LOEO Cross-Validation**<br>*(~~38~~ SUPERSEDED — see 37-fold rerun below)* | **Set A** (Traffic+Packet) | ~~**0.9274 +/- 0.1225**~~ | ~~**0.9689 +/- 0.0879**~~ | ~~**0.9070 +/- 0.1629**~~ | — | ~~**CONDITIONAL PASS**~~ SUPERSEDED |
+| | **Set B** (Hour+Day Only) | ~~**0.8884 +/- 0.1014**~~ | ~~**0.8275 +/- 0.1572**~~ | ~~**0.9826 +/- 0.0485**~~ | — | ~~Schedule baseline~~ SUPERSEDED |
+| **4b. LOEO Cross-Validation (37-fold rerun)**<br>*(37 folds, corrected Botnet=10 post-purge)* | **Set A** (Traffic+Packet) | **0.9077 +/- 0.1038** | **0.9129 +/- 0.1527** | **0.9269 +/- 0.1040** | — | **CONDITIONAL PASS** (ranges overlap) |
+| | **Set B** (Hour+Day Only) | **0.8126 +/- 0.1475** | **0.7215 +/- 0.1948** | **0.9788 +/- 0.0627** | — | Schedule baseline, high recall |
 
 ---
 
@@ -130,20 +132,42 @@ LOEO eliminates Protocol 3's distribution mismatch by cycling through each episo
 
 #### B.4 Overall LOEO Aggregate (38 folds across all multi-episode types)
 
+> [!WARNING]
+> **SUPERSEDED.** The 38-fold aggregate below is from the original Botnet=11 grouping. See Section B.4b for the authoritative 37-fold rerun.
+
 | Metric | Set A (Traffic+Packet) | Set B (Schedule-Only) |
 | :--- | :--- | :--- |
-| **F1** | **0.9274 +/- 0.1225** | **0.8884 +/- 0.1014** |
-| **Precision** | **0.9689 +/- 0.0879** | **0.8275 +/- 0.1572** |
-| **Recall** | **0.9070 +/- 0.1629** | **0.9826 +/- 0.0485** |
-| Head-to-Head (38 folds) | **A wins 19** | B wins 13, Ties 6 |
-| Mean +/- 1 Std Range | [0.8049, 1.0499] | [0.7870, 0.9898] |
+| **F1** | ~~**0.9274 +/- 0.1225**~~ | ~~**0.8884 +/- 0.1014**~~ |
+| **Precision** | ~~**0.9689 +/- 0.0879**~~ | ~~**0.8275 +/- 0.1572**~~ |
+| **Recall** | ~~**0.9070 +/- 0.1629**~~ | ~~**0.9826 +/- 0.0485**~~ |
+| Head-to-Head (38 folds) | ~~**A wins 19**~~ | ~~B wins 13, Ties 6~~ |
+| Mean +/- 1 Std Range | ~~[0.8049, 1.0499]~~ | ~~[0.7870, 0.9898]~~ |
+| **Ranges Overlap?** | ~~**Yes**~~ | |
+
+#### B.4b Overall LOEO Aggregate (37-FOLD RERUN — AUTHORITATIVE)
+
+| Metric | Set A (Traffic+Packet) | Set B (Schedule-Only) |
+| :--- | :--- | :--- |
+| **F1** | **0.9077 +/- 0.1038** | **0.8126 +/- 0.1475** |
+| **Precision** | **0.9129 +/- 0.1527** | **0.7215 +/- 0.1948** |
+| **Recall** | **0.9269 +/- 0.1040** | **0.9788 +/- 0.0627** |
+| Head-to-Head (37 folds) | **A wins 22** | B wins 10, Ties 5 |
+| Mean +/- 1 Std Range | [0.8039, 1.0115] | [0.6651, 0.9601] |
 | **Ranges Overlap?** | **Yes** | |
 
+**37-fold LOEO Detection Verdict: CONDITIONAL PASS.** Set A's mean F1 (0.9077) exceeds Set B's (0.8126) and Set A wins 22/37 folds. The +/- 1 std ranges still overlap, so statistical separation is not achieved at this sample size.
+
 ### C. LOEO Verdict & Per-Type CI Analysis
+
+> [!WARNING]
+> **SUPERSEDED (38-fold).** The text below refers to the original 38-fold LOEO (Botnet=11). The authoritative 37-fold rerun (Botnet=10) is in Section C.1b.
 
 **CONDITIONAL PASS.** Set A's mean F1 (0.9274) exceeds Set B's mean F1 (0.8884), and Set A wins 19/38 folds vs. Set B's 13/38. However, the +/- 1 std ranges overlap ([0.805, 1.050] vs [0.787, 0.990]), so we cannot claim statistical separation at this sample size.
 
 #### C.1 Per-Type Mean +/- Std & CI Overlap
+
+> [!WARNING]
+> The 38-fold per-type results below are **SUPERSEDED** by the 37-fold rerun (Section C.1b). They are preserved for audit trail only.
 
 | Attack Type | Folds | Set A F1 | Set A Range | Set B F1 | Set B Range | CI Overlap? | Per-Type Verdict |
 | :--- | ---: | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -152,6 +176,14 @@ LOEO eliminates Protocol 3's distribution mismatch by cycling through each episo
 | **Botnet** | 11 | **0.9414 +/- 0.1028** | [0.839, 1.044] | 0.9179 +/- 0.0597 | [0.858, 0.978] | **YES** | **CONDITIONAL** |
 
 All three types show CI overlap. SSH-Bruteforce is closest to separation (Set A's lower bound 0.965 nearly exceeds Set B's upper bound 0.986). DDOS-LOIC-UDP has the widest Set A variance (std=0.15), driven by single-window episodes.
+
+#### C.1b Per-Type Mean +/- Std & CI Overlap (37-FOLD RERUN — AUTHORITATIVE)
+
+| Attack Type | Folds | Set A F1 | Set A Range | Set B F1 | Set B Range | CI Overlap? | Per-Type Verdict |
+| :--- | ---: | :--- | :--- | :--- | :--- | :--- | :--- |
+| **SSH-Bruteforce** | 9 | **0.9407 +/- 0.0418** | [0.899, 0.983] | 0.9268 +/- 0.0571 | [0.870, 0.984] | **YES** | **CONDITIONAL PASS** |
+| **DDOS-LOIC-UDP** | 18 | **0.8768 +/- 0.1335** | [0.743, 1.010] | 0.7615 +/- 0.1518 | [0.610, 0.913] | **YES** | **CONDITIONAL PASS** |
+| **Botnet** | 10 | **0.9335 +/- 0.0643** | [0.869, 0.998] | 0.8017 +/- 0.1490 | [0.653, 0.951] | **YES** | **CONDITIONAL PASS** |
 
 #### C.2 Outlier Folds Flagged
 
@@ -197,7 +229,7 @@ DDOS-HOIC (1 episode, 8 windows), Infiltration-Compromise (1 episode, 97 windows
 
 1. **Zero Timestamp Ingestion**: `window_start_utc`, `window_end_utc`, and `source_day` must be strictly retained as **non-feature metadata** and **never passed into neural network input layers**. This recommendation is correct and must remain enforced.
 2. **Feature Mask Integrity**: The model consumes only the normalized S_t feature array and feature-presence masks.
-3. **Risk: Schedule Signal Not Fully Defeated (CONDITIONAL PASS)**: LOEO shows Set A's traffic/packet features outperform Set B's schedule heuristic on mean F1 (0.9274 vs 0.8884) with a precision advantage (0.9689 vs 0.8275), but the confidence intervals overlap. The LSTM/GRU + GraphSAGE model's evaluation **must specifically demonstrate it outperforms a schedule-only baseline on held-out episodes** to close this gap definitively.
+3. **Risk: Schedule Signal Not Fully Defeated (CONDITIONAL PASS)**: The 37-fold LOEO rerun shows Set A's traffic/packet features outperform Set B's schedule heuristic on mean F1 (0.9077 vs 0.8126) with a precision advantage (0.9129 vs 0.7215), but the confidence intervals overlap. The LSTM/GRU + GraphSAGE model's evaluation **must specifically demonstrate it outperforms a schedule-only baseline on held-out episodes** to close this gap definitively.
 4. **Evaluation Protocol Requirement**: The modeling team must report results on all four protocols:
    - Protocol 1 (Chronological Holdout): Zero-shot anomaly detection
    - Protocol 2 (Window-Stratified): Within-episode detection baseline

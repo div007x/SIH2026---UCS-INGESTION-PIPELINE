@@ -237,6 +237,28 @@ def run_pipeline(config_path: str = "configs/pipeline_config.yaml") -> Dict[str,
     print("[*] Assigning contiguous episode IDs ({source_day}_{attack_type}_{run_index})...")
     full_windows_df = assign_episode_ids(full_windows_df)
 
+    # ── Materialize forecast_episode_id as a real saved column ──────────────
+    # Logic copied verbatim from run_loeo_corrected.py (lines 25-35).
+    # THIS IS THE ONE CANONICAL PLACE that computes forecast_episode_id.
+    # ML1 and ML2 must read this column from the parquet; do NOT reimplement.
+    print("[*] Materializing forecast_episode_id as a permanent column (day-safe bfill)...")
+    full_windows_df["forecast_episode_id"] = pd.Series(None, index=full_windows_df.index, dtype="object")
+    attack_mask = full_windows_df["label_attack_type"] != "Benign"
+    full_windows_df.loc[attack_mask, "forecast_episode_id"] = full_windows_df.loc[attack_mask, "episode_id"]
+
+    for day in full_windows_df["source_day"].unique():
+        day_idx = full_windows_df[full_windows_df["source_day"] == day].index
+        day_eps = full_windows_df.loc[day_idx, "episode_id"].where(
+            full_windows_df.loc[day_idx, "label_attack_type"] != "Benign"
+        )
+        next_attack_ep = day_eps.bfill()
+        pre_onset_day = (
+            (full_windows_df.loc[day_idx, "future_attack_label"] == 1)
+            & (full_windows_df.loc[day_idx, "label_binary"] == 0)
+        )
+        full_windows_df.loc[day_idx[pre_onset_day], "forecast_episode_id"] = next_attack_ep[pre_onset_day]
+    # ── end forecast_episode_id materialization ──────────────────────────────
+
     # STAGE 7: Leakage-Safe Feature Normalization (re-fit on POST-PURGE train partition)
     print("[*] Stage 7: Fitting RobustScaler solely on post-purge train split and normalizing all features (flow + packet)...")
     scaler_params_file = os.path.join(output_dir, "scaler_params.yaml")
