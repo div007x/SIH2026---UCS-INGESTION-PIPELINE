@@ -154,6 +154,9 @@ The corrected, authoritative LOEO evaluation uses **37 folds** (validated run `l
 > [!NOTE]
 > The "40" appearing in earlier investigation notes refers to the **raw total attack episode count** across all types including singletons — not the LOEO-eligible subset.
 
+> [!NOTE]
+> **Known Granularity Limitation (Intermittent Bursts)**: Under the strict 1-minute unbroken contiguous-run definition, intermittent attack bursts separated by brief 1-to-3 minute benign gaps (e.g., Botnet episodes at 10:45, 10:47, and 10:51 UTC) are classified as separate single-window episodes rather than a single merged multi-pulse event; any future coarser clustering rule would consolidate these into fewer, longer episodes without altering the underlying leakage boundaries.
+
 ---
 
 ## 7. Packet-Level Feature Coverage Limitation
