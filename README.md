@@ -74,7 +74,65 @@ python tests/test_pipeline.py
 python src/pipeline_runner.py
 ```
 
+### 3. Run UCSExtractor & Validator Tests
+```bash
+python -m unittest discover tests -v
+```
+
 All output datasets and audit reports are written directly to `data/ucs/`.
+
+---
+
+## ⚡ Runtime Extraction Engine (`UCSExtractor`)
+
+The `UCSExtractor` runtime module ([`src/ucs_extractor.py`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py)) packages the batch pipeline into a lightweight, high-performance module for streaming and real-time backend/inference integration.
+
+### Contract & Architecture (Schema `v3.0`)
+- **Total Output Shape**: Exactly **410 columns** per window:
+  - **4 Window Identifiers**: `window_id`, `window_start_utc`, `window_end_utc`, `source_day`
+  - **6 Presence Masks**: `mask_has_traffic_volume_features`, `mask_has_flow_timing_features`, `mask_has_packet_level_features`, `mask_has_tcp_flags`, `mask_has_graph_topology`, `mask_has_identity_auth`
+  - **400 Scaled Features**: Normalized via frozen `data/ucs/scaler_params.yaml` fitted on the 2,013 post-purge training windows.
+- **Frozen Imputation**: Missing values are imputed using frozen raw-scale training medians ([`data/ucs/imputation_params.yaml`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/data/ucs/imputation_params.yaml)), ensuring zero cross-sample leakage and centering neutral values at `0.0`.
+- **Reproducibility**: Bit-exact reproduction (0 bit mismatch) against the batch ingestion pipeline.
+
+### Class Constants & ML1 Alignment
+`UCSExtractor` exposes explicit class-level constants for seamless downstream consumption:
+
+| Constant | Column Count | Description & Usage |
+|:---|:---|:---|
+| `UCSExtractor.WINDOW_ID_COLUMNS` | 4 | Window provenance identifiers |
+| `UCSExtractor.MASK_COLUMNS` | 6 | Presence masks indicating feature availability |
+| `UCSExtractor.MODEL_FEATURE_COLUMNS` | 400 | Scaled feature columns in sequence_builder order |
+| `UCSExtractor.OUTPUT_COLUMNS` | 410 | Full contract: `WINDOW_ID_COLUMNS + MASK_COLUMNS + MODEL_FEATURE_COLUMNS` |
+| `UCSExtractor.MODEL_INPUT_COLUMNS` | 406 | **Direct ML1/LSTM input tensor order** (388 flow features + 6 masks + 12 packet features) matching `inference_feature_order_v1.json` |
+
+### Backend & ML1 Integration Example
+
+```python
+import pandas as pd
+from src.ucs_extractor import UCSExtractor
+
+# 1. Initialize extractor (loads frozen scaler and imputation artifacts)
+extractor = UCSExtractor(schema_version="v3.0")
+
+# 2. Extract standardized 410-column UCS DataFrame from raw CSV flows
+raw_csv_df = pd.read_csv("incoming_flows.csv")
+ucs_df = extractor.extract(raw_csv_df, source_type="csv")
+assert ucs_df.shape[1] == 410
+
+# 3. Model-facing slicing: select exactly the 406 features in ML1 LSTM order
+model_tensor_input = ucs_df[UCSExtractor.MODEL_INPUT_COLUMNS].values
+# model_tensor_input is ready to feed PyTorch/LSTM with 0 column alignment risk!
+```
+
+---
+
+## 🛡️ Input Validation (`CICFlowMeterValidator`)
+
+The `CICFlowMeterValidator` module ([`src/csv_validator.py`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/csv_validator.py)) verifies and cleans raw CSV inputs before extraction:
+- **`EXACT_MATCH`**: All 80 raw CICFlowMeter columns are present with standard casing.
+- **`MAPPED_VARIANT`**: Recognizable column variations (case differences, underscores, canonical names) are automatically mapped and decisions are recorded in `variant_mappings`.
+- **`REJECTED`**: Missing critical fields (destination port, timestamp, duration, packet counts) or non-numeric corrupted fields are rejected with detailed diagnostics.
 
 ---
 
@@ -82,4 +140,5 @@ All output datasets and audit reports are written directly to `data/ucs/`.
 
 - **Contiguous Episode Granularity**: Pulsing/intermittent C2 traffic can be split into multiple single-window episodes under the strict contiguity rule; this is documented and does not affect leakage boundaries.
 - **Packet-Level Feature Scope**: Raw PCAP packet extraction is currently scoped to Wednesday-14-02-2018 (`SSH-Bruteforce`); all remaining days use flow-level telemetry and have `mask_has_packet_level_features = 0.0`.
+
 
