@@ -183,3 +183,80 @@ Actual compressed total: **236.7 GB** (~95% of the stated ~250 GB round figure).
 - `mask_has_packet_level_features == 1` exists exclusively for 14-02-2018 (543/543 windows). All other days have `mask_has_packet_level_features == 0`.
 - `src/pcap_extractor.py` hardcodes `target_day="14-02-2018"`. No other day is referenced in any code path, config, git commit, or README.
 - No `.pcap` or `.pcapng` files exist locally for any day.
+
+---
+
+## 8. Known Limitations & Documented Findings
+
+### 8.1 Pre-Split Whole-Day Median: Identified Leakage Vector
+
+> [!IMPORTANT]
+> **Newly Identified Finding** — documented as a known limitation, not silently resolved.
+
+The original batch pipeline's within-day median (computed in `cleaner.py`'s `impute_missing_flow_values()`) was computed from **each day's entire flow set**, **before** the train/val/test split existed. The split happens later, at the global window level.
+
+This means the original per-day median for any given day mixed in flows destined for train, val, **and** test partitions of that day — a subtle, **pre-split leakage vector** distinct from anything purge/embargo protects against, since:
+- Purge/embargo guards only the **lookback/horizon boundary region** (35 windows at each boundary)
+- This whole-day statistic was computed **before any boundary existed**
+
+**Decision**: `data/ucs/imputation_params.yaml` is frozen using **ONLY the 3,628,886 train-window flows** (derived strictly from the verified, deduplicated intermediate parquets) — this is the leakage-safe correct choice for a frozen production artifact, even though it means Test 1 (bit-exact regression) will legitimately NOT match the historical parquet for any window containing an originally-imputed value.
+
+This is documented **explicitly** here, not silently accepted as "close enough."
+
+### 8.2 Imputed Flow Count — Full-Dataset Audit (Post-Deduplication)
+
+Full audit across all 6 intermediate cleaned parquets (4,880,373 cleaned, deduplicated flows total):
+
+| Day | Cleaned Flows (Post-Dedup) | Flows w/ Inf→NaN (Zero Dur) | % Imputed | Columns Affected | Train-Window Flows | Train Windows Affected |
+| :--- | ---: | ---: | ---: | :--- | ---: | ---: |
+| 14-02-2018 | 822,942 | 3,821 | 0.4643% | `packets_per_sec`, `bytes_per_sec` | 822,942 | 471 / 543 |
+| 21-02-2018 | 1,031,018 | 0 | 0.0000% | — | 1,031,018 | 0 / 170 |
+| 22-02-2018 | 1,045,288 | 5,604 | 0.5361% | `packets_per_sec`, `bytes_per_sec` | 1,045,288 | 538 / 549 |
+| 28-02-2018 | 606,982 | 4,786 | 0.7885% | `packets_per_sec`, `bytes_per_sec` | 606,982 | 536 / 570 |
+| 01-03-2018 | 331,027 | 2,917 | 0.8812% | `packets_per_sec`, `bytes_per_sec` | 122,656 | 173 / 181 |
+| 02-03-2018 | 1,043,116 | 4,044 | 0.3877% | `packets_per_sec`, `bytes_per_sec` | 0 | 0 / 0 (all val/test) |
+| **TOTAL** | **4,880,373** | **21,172** | **0.4338%** | — | **3,628,886** | **1,718 / 2,013** |
+
+The cause is zero-duration flows where CICFlowMeter sets rate columns to `Inf` (division by zero). The `clean_and_normalize_flow_data()` function converts `Inf → NaN` and drops exact duplicates; `impute_missing_flow_values()` then fills with the within-day median.
+
+### 8.3 Test 1 (Bit-Exact Regression) — Scope Restriction
+
+> [!WARNING]
+> **1,718 out of 2,013 post-purge train windows (85.35%)** contain at least one flow that was originally imputed in the batch run. Only **295 train windows are "clean" (14.65%)** (contain zero originally-imputed flows).
+
+**Test 1 is scoped to the 295 clean train windows only.** These windows are fully bit-exact reproducible because no imputation occurred during the original batch run, so the frozen artifact produces numerically identical output.
+
+For the 1,718 affected windows, the frozen runtime imputation median (train-window-only) differs from the original batch pipeline's pre-split whole-day median — this is a **bounded, expected, documented discrepancy** that is the correct outcome of choosing leakage-safe statistics.
+
+**Regression test window selection criterion**: Select from the 295 clean train windows (source_day=21-02-2018 provides 170 guaranteed-clean windows since that day had zero Inf-producing flows).
+
+### 8.4 Frozen Imputation Parameters — Dual Structure
+
+`data/ucs/imputation_params.yaml` implements a dual structure:
+
+| Section | Contents | Used When |
+| :--- | :--- | :--- |
+| `flow_medians_by_day` | Per-day medians for 5 days (14-02, 21-02, 22-02, 28-02, 01-03), each from that day's train-window flows only | `source_type="csv"` + recognized `source_day` |
+| `flow_medians_global` | Single pooled median across all 3,628,886 train-window flows (`bytes_per_sec=1076.026418, packets_per_sec=422.986283`) | `source_type="csv"` + unrecognized day at runtime |
+| `window_feature_medians` | 400 window-level features in raw scale (inverse `expm1` applied to `log1p` features) | Missing window feature fill centering at `0.0` under RobustScaler |
+
+Note: 02-03-2018 (Friday/Botnet) has **no** `flow_medians_by_day` entry because all its flows fall in the val/test partition — per-day train-window flows for that day are zero. Any runtime inference on 02-03-2018-like input falls back to the global median.
+
+### 8.5 Synthetic Test for Imputation Path (Task 4)
+
+A dedicated synthetic test (`tests/test_frozen_imputation.py :: TestSyntheticImputeSubstitution`) directly exercises the `_frozen_impute()` substitution logic by constructing a deliberate `Inf → NaN` flow and asserting the frozen median is applied correctly. This test does **not** depend on finding a natural historical example (which is rare given ~0.44% flow frequency), so it is always exercisable without the full dataset.
+
+### 8.6 Cross-Team Scaler Alignment with ML1 Inference Contract
+
+> [!NOTE]
+> **Authoritative Compatibility Alignment**: Adopted ML1's `inference_scaler_v1.yaml` parameters into `data/ucs/scaler_params.yaml` to ensure 100% bit-exact parity with the frozen LSTM checkpoint (`gaussian_next_state_best.pt`).
+
+During cross-team contract verification between `UCSExtractor` and ML1's artifacts (`inference_feature_order_v1.json` and `inference_scaler_v1.yaml`):
+1. **Feature Order**: 406/406 input columns matched in 100% exact identical order.
+2. **Scaler Parameters**: 395/400 features matched bit-exactly across all parameters (`median`, `scale`, `is_log1p`, `q25`, `q75`).
+3. **Packet Feature Divergence & Root Cause**: Exactly 5 PCAP packet features (`pkt_frag_df_count`, `pkt_payload_size_p50`, `pkt_payload_size_p75`, `pkt_payload_size_p95`, `pkt_tcp_retrans_count`) showed divergent `scale` and `q75` values.
+   - **Root Cause Investigation**: In `src/pcap_extractor.py`, because no local `.pcap` files exist on disk, packet features for 14-02-2018 were generated via deterministic flow-derived simulation using heuristic formulas and clipping bounds (e.g., `np.clip(fwd_byts / fwd_pkts, 40.0, 150.0)`).
+   - In Data Eng's earlier scaler, these 5 features used the heuristic clipping floor/ceil values (e.g. `scale=40.0, 75.0, 150.0, 0.8, 0.01`).
+   - In ML1's training-time export, they used the empirical 75th percentiles of the simulated window distribution (`1164.8, 48.2544, 88.0, 186.4017, 3.06`).
+   - **Resolution**: `data/ucs/scaler_params.yaml` was updated to adopt ML1's empirical values, establishing 100% bit-exact alignment across all 400 features.
+   - **Caveat**: The underlying packet features for 14-02-2018 represent flow-derived deterministic simulations rather than real extracted raw PCAP frames. Full genuine PCAP extraction across all days remains deferred post-MVP (~250 GB download cost).

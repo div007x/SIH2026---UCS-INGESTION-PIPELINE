@@ -2358,10 +2358,10 @@ pkt_frag_mf_count:
   q75: 0.0
 pkt_frag_df_count:
   median: 0.0
-  scale: 0.8
+  scale: 1164.8
   is_log1p: false
   q25: 0.0
-  q75: 0.8
+  q75: 1164.8
 pkt_payload_size_p25:
   median: 0.0
   scale: 32.0
@@ -2370,28 +2370,28 @@ pkt_payload_size_p25:
   q75: 32.0
 pkt_payload_size_p50:
   median: 0.0
-  scale: 40.0
+  scale: 48.25443572721787
   is_log1p: false
   q25: 0.0
-  q75: 40.0
+  q75: 48.25443572721787
 pkt_payload_size_p75:
   median: 0.0
-  scale: 75.0
+  scale: 88.0
   is_log1p: false
   q25: 0.0
-  q75: 75.0
+  q75: 88.0
 pkt_payload_size_p95:
   median: 0.0
-  scale: 150.0
+  scale: 186.40166289661917
   is_log1p: false
   q25: 0.0
-  q75: 150.0
+  q75: 186.40166289661917
 pkt_tcp_retrans_count:
   median: 0.0
-  scale: 0.01
+  scale: 3.06
   is_log1p: false
   q25: 0.0
-  q75: 0.01
+  q75: 3.06
 pkt_port_scan_seq_score:
   median: 0.0
   scale: 0.05
