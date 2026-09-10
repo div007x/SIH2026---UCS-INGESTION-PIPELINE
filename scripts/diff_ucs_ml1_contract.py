@@ -390,9 +390,10 @@ def generate_markdown_report(result: ContractDiffResult) -> str:
     # 2. Downstream Enforcement / FAIL Action statement
     if result.passed:
         lines.append("> [!IMPORTANT]")
-        lines.append("> **INFERENCE GATE: UNLOCKED**")
+        lines.append("> **INFERENCE GATE: UNLOCKED (CONDITIONAL / PROVISIONAL ON CURRENT CHECKPOINT)**")
         lines.append("> Exact index-by-index positional order and numerical parameters match 100% across all 406 model dimensions.")
-        lines.append("> Downstream backend services are authorized to wire [`UCSExtractor.extract()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) and [`UCSExtractor.extract_model_tensor()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) directly into `backend.predict()`.")
+        lines.append("> Unlocked against the CURRENT deployed checkpoint (trained on simulated packet features for 14-02-2018). This is NOT unlocked against a corrected/honest-fallback pipeline -- that change was reverted (353fb96) pending ML1 retrain coordination, which has not yet been confirmed.")
+        lines.append("> Downstream backend services are authorized to wire [`UCSExtractor.extract()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) and [`UCSExtractor.extract_model_tensor()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) into `backend.predict()` ONLY for evaluation against this current deployed checkpoint.")
     else:
         lines.append("> [!CAUTION]")
         lines.append("> **CRITICAL BLOCKER — INFERENCE GATE BLOCKED**")
