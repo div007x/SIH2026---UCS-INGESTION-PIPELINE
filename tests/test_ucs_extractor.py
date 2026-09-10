@@ -218,7 +218,7 @@ class TestUCSExtractor(unittest.TestCase):
         Asserts 100% positional and parameter parity.
         """
         from scripts.diff_ucs_ml1_contract import run_contract_diff
-        result = run_contract_diff(version="v1")
+        result = run_contract_diff(version="v2")
         self.assertTrue(result.passed, f"Contract diff failed: {result.positional_mismatches}")
         self.assertEqual(result.ucs_model_input_count, 406)
         self.assertEqual(result.ucs_feature_count, 400)

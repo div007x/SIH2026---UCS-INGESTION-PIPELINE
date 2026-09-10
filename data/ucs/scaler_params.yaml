@@ -2328,73 +2328,73 @@ unique_protocols_count:
   q75: 3.0
 pkt_ttl_min:
   median: 0.0
-  scale: 52.0
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 52.0
+  q75: 0.0
+  is_log1p: false
 pkt_ttl_max:
   median: 0.0
-  scale: 128.0
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 128.0
+  q75: 0.0
+  is_log1p: false
 pkt_ttl_std:
   median: 0.0
-  scale: 14.2
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 14.2
+  q75: 0.0
+  is_log1p: false
 pkt_ttl_mode:
   median: 0.0
-  scale: 64.0
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 64.0
+  q75: 0.0
+  is_log1p: false
 pkt_frag_mf_count:
   median: 0.0
   scale: 1.0
-  is_log1p: false
   q25: 0.0
   q75: 0.0
+  is_log1p: false
 pkt_frag_df_count:
   median: 0.0
-  scale: 1164.8
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 1164.8
+  q75: 0.0
+  is_log1p: false
 pkt_payload_size_p25:
   median: 0.0
-  scale: 32.0
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 32.0
+  q75: 0.0
+  is_log1p: false
 pkt_payload_size_p50:
   median: 0.0
-  scale: 48.25443572721787
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 48.25443572721787
+  q75: 0.0
+  is_log1p: false
 pkt_payload_size_p75:
   median: 0.0
-  scale: 88.0
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 88.0
+  q75: 0.0
+  is_log1p: false
 pkt_payload_size_p95:
   median: 0.0
-  scale: 186.40166289661917
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 186.40166289661917
+  q75: 0.0
+  is_log1p: false
 pkt_tcp_retrans_count:
   median: 0.0
-  scale: 3.06
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 3.06
+  q75: 0.0
+  is_log1p: false
 pkt_port_scan_seq_score:
   median: 0.0
-  scale: 0.05
-  is_log1p: false
+  scale: 1.0
   q25: 0.0
-  q75: 0.05
+  q75: 0.0
+  is_log1p: false
