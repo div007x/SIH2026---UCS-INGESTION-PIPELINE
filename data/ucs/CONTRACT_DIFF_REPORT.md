@@ -1,21 +1,15 @@
 # UCSExtractor vs. ML1 Inference Contract Diff Report
 
-**Evaluation Status**: 🟢 **PASS**  
-**Evaluated Contract Version**: `v1`  
-**Timestamp (UTC)**: `2026-09-10T05:18:10.234816+00:00`  
-**Feature Order Artifact**: `E:\SIH 2026 - UCS Ingestion Pipeline (Main)\scratch\ml1_repo\artifacts\lstm\inference_feature_order_v1.json`  
-**Scaler Artifact**: `E:\SIH 2026 - UCS Ingestion Pipeline (Main)\scratch\ml1_repo\artifacts\lstm\inference_scaler_v1.yaml`  
+**Evaluation Status**: 🔴 **FAIL**  
+**Evaluated Contract Version**: `v2`  
+**Timestamp (UTC)**: `2026-09-10T07:18:09.908744+00:00`  
+**Feature Order Artifact**: `E:\SIH 2026 - UCS Ingestion Pipeline (Main)\scratch\ml1_repo\artifacts\lstm\inference_feature_order_v2.json`  
+**Scaler Artifact**: `E:\SIH 2026 - UCS Ingestion Pipeline (Main)\scratch\ml1_repo\artifacts\lstm\inference_scaler_v2.yaml`  
 
-> [!WARNING]
-> **PROVISIONAL BASELINE REPORT (v1 Contract)**: This verification is grounded against ML1's `v1` contract artifacts (`inference_feature_order_v1.json`, `inference_scaler_v1.yaml`).
-> ML1 is actively preparing `_v2` contract files (`inference_feature_order_v2.json`, `inference_scaler_v2.yaml`).
-> Once delivered, this report must be re-generated using `python scripts/diff_ucs_ml1_contract.py --version v2` to obtain final production sign-off.
-
-> [!IMPORTANT]
-> **INFERENCE GATE: UNLOCKED (CONDITIONAL / PROVISIONAL ON CURRENT CHECKPOINT)**
-> Exact index-by-index positional order and numerical parameters match 100% across all 406 model dimensions.
-> Unlocked against the CURRENT deployed checkpoint (trained on simulated packet features for 14-02-2018). This is NOT unlocked against a corrected/honest-fallback pipeline -- that change was reverted (353fb96) pending ML1 retrain coordination, which has not yet been confirmed.
-> Downstream backend services are authorized to wire [`UCSExtractor.extract()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) and [`UCSExtractor.extract_model_tensor()`](file:///e:/SIH%202026%20-%20UCS%20Ingestion%20Pipeline%20(Main)/src/ucs_extractor.py) into `backend.predict()` ONLY for evaluation against this current deployed checkpoint.
+> [!CAUTION]
+> **CRITICAL BLOCKER — INFERENCE GATE BLOCKED**
+> Positional ordering or scaler parameter divergence detected. The LSTM input layer is positional; any index mismatch will silently feed features into wrong weights.
+> **Automated Action**: Automated CI / pre-commit validation has failed with exit code 1. Downstream backend integration MUST NOT invoke `predict()` with `UCSExtractor` outputs until all mismatches are resolved.
 
 ## 📌 Dimension Specification & PCAP Packet Count Clarification
 
@@ -80,10 +74,44 @@ The LSTM tensor layout expects features in three strictly sequential contiguous 
 ## ⚖️ Scaler Parameter Parity Audit
 
 - **Features Evaluated**: 400 / 400 features
-- **Maximum Parameter Deviation**: `0.00000000e+00`
-- **Parameter Mismatches**: 0
+- **Maximum Parameter Deviation**: `2.63625059e+10`
+- **Parameter Mismatches**: 1191
 
-✅ **All 400 scaled feature parameters match bit-exactly** (`median`, `scale`, `is_log1p`, `q25`, `q75`).
+❌ **Scaler Parameter Divergences:**
+
+| Feature Name | Parameter | ML1 Value | UCS Value | Absolute Difference |
+|:---|:---:|:---:|:---:|:---:|
+| `duration_microsec_mean` | `median` | `0.0` | `14770387.468899522` | 1.477039e+07 |
+| `duration_microsec_mean` | `scale` | `1.0` | `7138992.385225026` | 7.138991e+06 |
+| `duration_microsec_mean` | `q25` | `-0.4924353109324769` | `11254895.533936651` | 1.125490e+07 |
+| `duration_microsec_mean` | `q75` | `0.5075646890675231` | `18393887.919161677` | 1.839389e+07 |
+| `duration_microsec_std` | `median` | `0.0` | `33804024.98359233` | 3.380402e+07 |
+| `duration_microsec_std` | `scale` | `1.0` | `8382648.308490299` | 8.382647e+06 |
+| `duration_microsec_std` | `q25` | `-0.6098644024238478` | `28691746.182205617` | 2.869175e+07 |
+| `duration_microsec_std` | `q75` | `0.3901355975761523` | `37074394.490695916` | 3.707439e+07 |
+| `duration_microsec_sum` | `median` | `0.0` | `14877718166.0` | 1.487772e+10 |
+| `duration_microsec_sum` | `scale` | `1.0` | `18859479925.0` | 1.885948e+10 |
+| `duration_microsec_sum` | `q25` | `-0.3910336994088664` | `7503025962.0` | 7.503026e+09 |
+| `duration_microsec_sum` | `q75` | `0.6089663005911337` | `26362505887.0` | 2.636251e+10 |
+| `duration_microsec_min` | `scale` | `1.0` | `9699411.73391782` | 9.699411e+06 |
+| `duration_microsec_max` | `median` | `0.0` | `119941811.0` | 1.199418e+08 |
+| `duration_microsec_max` | `scale` | `1.0` | `492001.0` | 4.920000e+05 |
+| `duration_microsec_max` | `q25` | `-0.8909616037365777` | `119503457.0` | 1.195035e+08 |
+| `duration_microsec_max` | `q75` | `0.10903839626342222` | `119995458.0` | 1.199955e+08 |
+| `packet_count_fwd_mean` | `median` | `0.0` | `1.8496654668054964` | 1.849665e+00 |
+| `packet_count_fwd_mean` | `scale` | `0.459370993611396` | `0.25591390619603205` | 2.034571e-01 |
+| `packet_count_fwd_mean` | `q25` | `0.0` | `1.742969305058623` | 1.742969e+00 |
+| `packet_count_fwd_mean` | `q75` | `0.459370993611396` | `1.998883211254655` | 1.539512e+00 |
+| `packet_count_fwd_std` | `median` | `0.0` | `2.3424951757031387` | 2.342495e+00 |
+| `packet_count_fwd_std` | `scale` | `0.5389561492919074` | `1.2490326755327388` | 7.100765e-01 |
+| `packet_count_fwd_std` | `q25` | `0.0` | `1.9855422982631725` | 1.985542e+00 |
+| `packet_count_fwd_std` | `q75` | `0.5389561492919074` | `3.2345749737959113` | 2.695619e+00 |
+| `packet_count_fwd_sum` | `median` | `0.0` | `8.768885326134862` | 8.768885e+00 |
+| `packet_count_fwd_sum` | `scale` | `0.40688621724115326` | `1.1664804466221295` | 7.595942e-01 |
+| `packet_count_fwd_sum` | `q25` | `0.0` | `8.188133414510478` | 8.188133e+00 |
+| `packet_count_fwd_sum` | `q75` | `0.40688621724115326` | `9.354613861132608` | 8.947728e+00 |
+| `packet_count_fwd_min` | `median` | `0.0` | `0.6931471805599453` | 6.931472e-01 |
+| ... | *and 1161 more mismatches* | | | |
 
 ## 🚀 Backend Downstream Integration Guidance
 
@@ -104,4 +132,4 @@ model_tensor = ucs_df[UCSExtractor.MODEL_INPUT_COLUMNS].to_numpy(dtype=np.float3
 ```
 
 ---
-*Report automatically generated by `scripts/diff_ucs_ml1_contract.py` on 2026-09-10T05:18:10.234816+00:00.*
+*Report automatically generated by `scripts/diff_ucs_ml1_contract.py` on 2026-09-10T07:18:09.908744+00:00.*
