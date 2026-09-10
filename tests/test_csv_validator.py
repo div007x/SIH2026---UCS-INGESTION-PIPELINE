@@ -99,6 +99,30 @@ class TestCICFlowMeterValidator(unittest.TestCase):
         self.assertFalse(res_empty.is_valid)
         self.assertEqual(res_empty.status, ValidationStatus.REJECTED)
 
+    def test_canonical_mapper_edge_cases(self):
+        """Test F: map_to_canonical_schema handles edge-case aliases and spacing."""
+        from src.canonical_mapper import map_to_canonical_schema
+        edge_df = pd.DataFrame({
+            " Destination Port ": [80, 443],
+            "Flow Duration ": [1000, 2000],
+            "Total Fwd Packets": [5, 10],
+            "Total Backward Packets": [4, 8],
+            "Total Length of Fwd Packets": [500, 1000],
+            "Total Length of Bwd Packets": [400, 800],
+            "Flow Bytes/s": [100.0, 200.0],
+            "Flow Packets/s": [10.0, 20.0],
+        })
+        mapped_df, audit = map_to_canonical_schema(edge_df)
+        self.assertIn("destination_port", mapped_df.columns)
+        self.assertIn("duration_microsec", mapped_df.columns)
+        self.assertIn("packet_count_fwd", mapped_df.columns)
+        self.assertIn("packet_count_bwd", mapped_df.columns)
+        self.assertIn("byte_count_fwd", mapped_df.columns)
+        self.assertIn("byte_count_bwd", mapped_df.columns)
+        self.assertIn("bytes_per_sec", mapped_df.columns)
+        self.assertIn("packets_per_sec", mapped_df.columns)
+        self.assertEqual(len(audit["unmapped_columns"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

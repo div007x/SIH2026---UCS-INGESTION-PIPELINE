@@ -191,6 +191,41 @@ class TestUCSExtractor(unittest.TestCase):
         self.assertFalse(numeric_part.isna().any().any())
         self.assertTrue(np.isfinite(numeric_part.values).all())
 
+    def test_extract_model_tensor_entry_point(self):
+        """
+        Verify extract_model_tensor returns 2D NumPy float32 tensor of shape (N, 406)
+        in exact MODEL_INPUT_COLUMNS positional order for backend predict().
+        """
+        synthetic_flows = pd.DataFrame({
+            "Dst Port": [80, 443],
+            "Protocol": [6, 6],
+            "Timestamp": ["14/02/2018 09:00:00", "14/02/2018 09:00:30"],
+            "Flow Duration": [1000000, 2000000],
+            "Tot Fwd Pkts": [10, 20],
+            "Tot Bwd Pkts": [8, 15],
+            "TotLen Fwd Pkts": [1000, 2000],
+            "TotLen Bwd Pkts": [800, 1500],
+        })
+        tensor = self.extractor.extract_model_tensor(synthetic_flows, source_type="csv")
+        self.assertIsInstance(tensor, np.ndarray)
+        self.assertEqual(tensor.shape, (1, 406))
+        self.assertEqual(tensor.dtype, np.float32)
+        self.assertTrue(np.isfinite(tensor).all())
+
+    def test_programmatic_diff_engine(self):
+        """
+        Runs the authoritative programmatic contract diff between UCSExtractor and ML1.
+        Asserts 100% positional and parameter parity.
+        """
+        from scripts.diff_ucs_ml1_contract import run_contract_diff
+        result = run_contract_diff(version="v1")
+        self.assertTrue(result.passed, f"Contract diff failed: {result.positional_mismatches}")
+        self.assertEqual(result.ucs_model_input_count, 406)
+        self.assertEqual(result.ucs_feature_count, 400)
+        self.assertEqual(result.ucs_mask_count, 6)
+        self.assertEqual(len(result.positional_mismatches), 0)
+        self.assertEqual(len(result.scaler_mismatches), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -115,15 +115,26 @@ from src.ucs_extractor import UCSExtractor
 # 1. Initialize extractor (loads frozen scaler and imputation artifacts)
 extractor = UCSExtractor(schema_version="v3.0")
 
-# 2. Extract standardized 410-column UCS DataFrame from raw CSV flows
-raw_csv_df = pd.read_csv("incoming_flows.csv")
+# 2. Option A (Recommended): Direct 2D model tensor for backend.predict()
+# Returns np.ndarray shape (N_windows, 406), float32 in exact positional LSTM order
+model_tensor = extractor.extract_model_tensor(raw_csv_df, source_type="csv")
+
+# 3. Option B: Full 410-column DataFrame with window IDs and provenance
 ucs_df = extractor.extract(raw_csv_df, source_type="csv")
 assert ucs_df.shape[1] == 410
-
-# 3. Model-facing slicing: select exactly the 406 features in ML1 LSTM order
-model_tensor_input = ucs_df[UCSExtractor.MODEL_INPUT_COLUMNS].values
-# model_tensor_input is ready to feed PyTorch/LSTM with 0 column alignment risk!
+model_tensor = ucs_df[UCSExtractor.MODEL_INPUT_COLUMNS].to_numpy(dtype=np.float32)
 ```
+
+### Contract Verification & Diff Engine
+To guarantee 100% positional and numerical parity between `UCSExtractor` and ML1's inference contract:
+```powershell
+# Run programmatic positional diff check
+.venv\Scripts\python.exe scripts/diff_ucs_ml1_contract.py --version v1 --check-only
+
+# View the committed audit report:
+# data/ucs/CONTRACT_DIFF_REPORT.md
+```
+*(Once ML1 delivers `_v2` contract files, execute `.venv\Scripts\python.exe scripts/diff_ucs_ml1_contract.py --version v2` to re-validate and update the committed report).*
 
 ---
 

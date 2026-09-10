@@ -291,3 +291,35 @@ class UCSExtractor:
             raise SchemaValidationError(f"NaN values detected in feature columns: {nan_cols[:10]}")
 
         return final_df
+
+    def extract_model_tensor(
+        self,
+        raw_input: pd.DataFrame,
+        source_type: str = "csv",
+        dtype: np.dtype = np.float32,
+    ) -> np.ndarray:
+        """
+        Authoritative input-side entry point for Backend's predict().
+
+        Extracts standardized UCS windows and returns a 2D NumPy tensor in the exact
+        positional order required by the LSTM world model (MODEL_INPUT_COLUMNS, 406 dims):
+        - Indices 0..387: 388 scaled flow aggregation features
+        - Indices 388..393: 6 presence masks (1.0 or 0.0)
+        - Indices 394..405: 12 scaled PCAP packet features
+
+        Parameters
+        ----------
+        raw_input : pd.DataFrame
+            Input flow or window records.
+        source_type : str
+            Source format: 'csv', 'pcap', or 'flows'.
+        dtype : np.dtype
+            Target numpy data type, defaults to np.float32 for PyTorch tensors.
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (N_windows, 406) in exact LSTM input feature order.
+        """
+        extracted_df = self.extract(raw_input, source_type=source_type)
+        return extracted_df[self.MODEL_INPUT_COLUMNS].to_numpy(dtype=dtype)
